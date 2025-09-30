@@ -41,4 +41,8 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ steps.build_meta.outputs.timestamp }}
+            codex/disable-actions-and-build-docker-image
             ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            master
