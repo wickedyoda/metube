@@ -1,12 +1,13 @@
 import os
 import yt_dlp
 from collections import OrderedDict
-import shelve
 import time
 import asyncio
 import multiprocessing
 import logging
 import re
+import pickle
+import tempfile
 
 import yt_dlp.networking.impersonate
 from dl_formats import get_format, get_opts, AUDIO_FORMATS
@@ -180,12 +181,66 @@ class Download:
 class PersistentQueue:
     def __init__(self, path):
         pdir = os.path.dirname(path)
-        if not os.path.isdir(pdir):
-            os.mkdir(pdir)
-        with shelve.open(path, 'c'):
-            pass
+        os.makedirs(pdir, exist_ok=True)
         self.path = path
+        self.store_path = f"{path}.pkl"
         self.dict = OrderedDict()
+
+    def _legacy_candidates(self):
+        suffixes = ('', '.db', '.dat', '.dir', '.bak')
+        for suffix in suffixes:
+            yield f"{self.path}{suffix}"
+
+    def _reset_store(self):
+        log.warning(f"Resetting persistent store at {self.path} due to unreadable state database")
+        for candidate in self._legacy_candidates():
+            if os.path.isfile(candidate):
+                try:
+                    os.remove(candidate)
+                except OSError as exc:
+                    log.error(f"Failed to remove corrupted state file {candidate}: {exc}")
+        if os.path.isfile(self.store_path):
+            try:
+                os.remove(self.store_path)
+            except OSError as exc:
+                log.error(f"Failed to remove persistent queue file {self.store_path}: {exc}")
+
+    def _read_store(self):
+        if not os.path.isfile(self.store_path):
+            return []
+        try:
+            with open(self.store_path, 'rb') as fh:
+                data = pickle.load(fh)
+        except FileNotFoundError:
+            return []
+        except Exception as exc:
+            log.error(f"Failed to read persistent queue {self.store_path}: {exc}")
+            self._reset_store()
+            return []
+        if isinstance(data, list):
+            return data
+        log.error(f"Unexpected data format in {self.store_path}; resetting store")
+        self._reset_store()
+        return []
+
+    def _write_store(self):
+        directory = os.path.dirname(self.store_path)
+        os.makedirs(directory, exist_ok=True)
+        data = [(key, download.info) for key, download in self.dict.items()]
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile('wb', dir=directory, delete=False) as fh:
+                pickle.dump(data, fh)
+                tmp_path = fh.name
+            os.replace(tmp_path, self.store_path)
+        except Exception as exc:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            log.error(f"Failed to persist queue {self.store_path}: {exc}")
+            raise
 
     def load(self):
         for k, v in self.saved_items():
@@ -201,20 +256,26 @@ class PersistentQueue:
         return self.dict.items()
 
     def saved_items(self):
-        with shelve.open(self.path, 'r') as shelf:
-            return sorted(shelf.items(), key=lambda item: item[1].timestamp)
+        items = self._read_store()
+        return sorted(items, key=lambda item: item[1].timestamp)
 
     def put(self, value):
         key = value.info.url
         self.dict[key] = value
-        with shelve.open(self.path, 'w') as shelf:
-            shelf[key] = value.info
+        try:
+            self._write_store()
+        except Exception:
+            self.dict.pop(key, None)
+            raise
 
     def delete(self, key):
         if key in self.dict:
-            del self.dict[key]
-            with shelve.open(self.path, 'w') as shelf:
-                shelf.pop(key, None)
+            value = self.dict.pop(key)
+            try:
+                self._write_store()
+            except Exception:
+                self.dict[key] = value
+                raise
 
     def next(self):
         k, v = next(iter(self.dict.items()))
