@@ -21,13 +21,18 @@ docker run -d -p 8081:8081 -v /path/to/downloads:/downloads ghcr.io/wickedyoda/m
 ```yaml
 services:
   metube:
-    image: ghcr.io/wickedyoda/metube
+    image: ghcr.io/alexta69/metube:latest
     container_name: metube
     restart: unless-stopped
     ports:
       - "8081:8081"
     volumes:
-      - /path/to/downloads:/downloads
+      - /your/download/path/metube-downloads:/downloads
+    environment:
+      # Optional tuning
+      DOWNLOAD_MODE: limited          # sequential | concurrent | limited
+      MAX_CONCURRENT_DOWNLOADS: 3     # only used if DOWNLOAD_MODE=limited
+      DELETE_FILE_ON_TRASHCAN: "false"
 ```
 
 ## ⚙️ Configuration via environment variables
