@@ -3,6 +3,8 @@
 ![Build Status](https://github.com/alexta69/metube/actions/workflows/main.yml/badge.svg)
 ![Docker Pulls](https://img.shields.io/docker/pulls/alexta69/metube.svg)
 
+This is a fork of a fork of a fork, but I had some issues which we could not get resolved. So I forked the repo and made the changes needed. Origional work is listed below. 
+
 Web GUI for youtube-dl (using the [yt-dlp](https://github.com/yt-dlp/yt-dlp) fork) with playlist support. Allows you to download videos from YouTube and [dozens of other sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
 ![screenshot1](https://github.com/alexta69/metube/raw/master/screenshot.gif)
@@ -10,21 +12,27 @@ Web GUI for youtube-dl (using the [yt-dlp](https://github.com/yt-dlp/yt-dlp) for
 ## 🐳 Run using Docker
 
 ```bash
-docker run -d -p 8081:8081 -v /path/to/downloads:/downloads ghcr.io/alexta69/metube
+docker run -d -p 8081:8081 -v /path/to/downloads:/downloads ghcr.io/wickedyoda/metube
 ```
+# readme 
 
 ## 🐳 Run using docker-compose
 
 ```yaml
 services:
   metube:
-    image: ghcr.io/alexta69/metube
+    image: ghcr.io/wickedyoda/metube:latest
     container_name: metube
     restart: unless-stopped
     ports:
       - "8081:8081"
     volumes:
-      - /path/to/downloads:/downloads
+      - /your/download/path/metube-downloads:/downloads
+    environment:
+      # Optional tuning
+      DOWNLOAD_MODE: limited          # sequential | concurrent | limited
+      MAX_CONCURRENT_DOWNLOADS: 3     # only used if DOWNLOAD_MODE=limited
+      DELETE_FILE_ON_TRASHCAN: "false"
 ```
 
 ## ⚙️ Configuration via environment variables
@@ -171,7 +179,7 @@ It's possible to configure MeTube to listen in HTTPS mode. `docker-compose` exam
 ```yaml
 services:
   metube:
-    image: ghcr.io/alexta69/metube
+    image: ghcr.io/wickedyoda/metube
     container_name: metube
     restart: unless-stopped
     ports:
