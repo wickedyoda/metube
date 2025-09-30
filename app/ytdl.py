@@ -19,6 +19,7 @@ master
 import yt_dlp.networking.impersonate
 from dl_formats import get_format, get_opts, AUDIO_FORMATS
 from datetime import datetime
+master
 
 log = logging.getLogger('ytdl')
 
@@ -50,7 +51,6 @@ class DownloadInfo:
 
 
 # ... (Download class stays unchanged)
-
 class PersistentQueue:
     def __init__(self, path):
         pdir = os.path.dirname(path)

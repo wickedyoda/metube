@@ -46,3 +46,4 @@ jobs:
 
             ghcr.io/${{ github.repository }}:${{ github.sha }}
             master
+
