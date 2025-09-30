@@ -1,3 +1,5 @@
+codex/disable-actions-and-build-docker-image
+
 import os
 import yt_dlp
 import shelve
@@ -12,6 +14,7 @@ import dbm
 import dbm.dumb
 from collections import OrderedDict
 from contextlib import contextmanager
+master
 
 import yt_dlp.networking.impersonate
 from dl_formats import get_format, get_opts, AUDIO_FORMATS
@@ -47,7 +50,6 @@ class DownloadInfo:
 
 
 # ... (Download class stays unchanged)
-
 
 class PersistentQueue:
     def __init__(self, path):
@@ -132,6 +134,7 @@ class PersistentQueue:
             del self.dict[key]
             with self._open_shelf('c') as shelf:
                 shelf.pop(key, None)
+    master
 
     def next(self):
         k, v = next(iter(self.dict.items()))
