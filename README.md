@@ -21,7 +21,7 @@ docker run -d -p 8081:8081 -v /path/to/downloads:/downloads ghcr.io/wickedyoda/m
 ```yaml
 services:
   metube:
-    image: ghcr.io/alexta69/metube:latest
+    image: ghcr.io/wickedyoda/metube:latest
     container_name: metube
     restart: unless-stopped
     ports:
@@ -179,7 +179,7 @@ It's possible to configure MeTube to listen in HTTPS mode. `docker-compose` exam
 ```yaml
 services:
   metube:
-    image: ghcr.io/alexta69/metube
+    image: ghcr.io/wickedyoda/metube
     container_name: metube
     restart: unless-stopped
     ports:
