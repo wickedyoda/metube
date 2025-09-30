@@ -7,6 +7,9 @@ import asyncio
 import multiprocessing
 import logging
 import re
+import dbm
+import dbm.dumb
+from contextlib import contextmanager
 
 import yt_dlp.networking.impersonate
 from dl_formats import get_format, get_opts, AUDIO_FORMATS
@@ -180,12 +183,54 @@ class Download:
 class PersistentQueue:
     def __init__(self, path):
         pdir = os.path.dirname(path)
-        if not os.path.isdir(pdir):
-            os.mkdir(pdir)
-        with shelve.open(path, 'c'):
-            pass
+        os.makedirs(pdir, exist_ok=True)
         self.path = path
+        with self._open_shelf('c'):
+            pass
         self.dict = OrderedDict()
+
+    def _reset_store(self):
+        log.warning(f"Resetting persistent store at {self.path} due to unreadable state database")
+        candidates = [self.path]
+        candidates.extend(f"{self.path}{suffix}" for suffix in ('.db', '.dat', '.dir', '.bak'))
+        for candidate in candidates:
+            if os.path.isfile(candidate):
+                try:
+                    os.remove(candidate)
+                except OSError as exc:
+                    log.error(f"Failed to remove corrupted state file {candidate}: {exc}")
+
+    @contextmanager
+    def _open_shelf(self, flag):
+        try:
+            shelf = shelve.open(self.path, flag)
+        except dbm.error:
+            log.warning(f"Falling back to dbm.dumb for {self.path}")
+            shelf = self._open_dumb(flag)
+        except FileNotFoundError:
+            if 'r' in flag:
+                shelf = self._open_dumb('c')
+            else:
+                raise
+        except Exception:
+            if 'r' in flag:
+                self._reset_store()
+                shelf = self._open_dumb('c')
+            else:
+                raise
+        try:
+            yield shelf
+        finally:
+            shelf.close()
+
+    def _open_dumb(self, flag):
+        try:
+            return shelve.DbfilenameShelf(dbm.dumb.open(self.path, flag))
+        except Exception:
+            if 'r' in flag or 'w' in flag:
+                self._reset_store()
+                return shelve.DbfilenameShelf(dbm.dumb.open(self.path, 'c'))
+            raise
 
     def load(self):
         for k, v in self.saved_items():
@@ -201,19 +246,22 @@ class PersistentQueue:
         return self.dict.items()
 
     def saved_items(self):
-        with shelve.open(self.path, 'r') as shelf:
-            return sorted(shelf.items(), key=lambda item: item[1].timestamp)
+        try:
+            with self._open_shelf('r') as shelf:
+                return sorted(shelf.items(), key=lambda item: item[1].timestamp)
+        except FileNotFoundError:
+            return []
 
     def put(self, value):
         key = value.info.url
         self.dict[key] = value
-        with shelve.open(self.path, 'w') as shelf:
+        with self._open_shelf('c') as shelf:
             shelf[key] = value.info
 
     def delete(self, key):
         if key in self.dict:
             del self.dict[key]
-            with shelve.open(self.path, 'w') as shelf:
+            with self._open_shelf('c') as shelf:
                 shelf.pop(key, None)
 
     def next(self):
